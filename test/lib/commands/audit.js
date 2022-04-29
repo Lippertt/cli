@@ -59,6 +59,41 @@ const tree = {
   },
 }
 
+const validSignatureTree = {
+  'package.json': JSON.stringify({
+    name: 'test-dep',
+    version: '1.0.0',
+    dependencies: {
+      'kms-demo': '1.0.0',
+    },
+  }),
+  'package-lock.json': JSON.stringify({
+    name: 'test-dep',
+    version: '1.0.0',
+    lockfileVersion: 2,
+    requires: true,
+    packages: {
+      '': {
+        xname: 'scratch',
+        version: '1.0.0',
+        dependencies: {
+          'kms-demo': '1.0.0',
+        },
+        devDependencies: {},
+      },
+      'node_modules/kms-demo': {
+        name: 'kms-demo',
+        version: '1.0.0',
+      },
+    },
+    dependencies: {
+      'kms-demo': {
+        version: '1.0.0',
+      },
+    },
+  }),
+}
+
 t.test('normal audit', async t => {
   const { npm, joinedOutput } = await loadMockNpm(t, {
     prefixDir: tree,
@@ -235,4 +270,48 @@ t.test('completion', async t => {
       message: 'repare not recognized',
     })
   })
+})
+
+t.test('signature verification with valid signatures', async t => {
+  const { npm, joinedOutput } = await loadMockNpm(t, {
+    prefixDir: validSignatureTree,
+  })
+  const registry = new MockRegistry({
+    tap: t,
+    registry: npm.config.get('registry'),
+  })
+  const manifest = registry.manifest({
+    name: 'kms-demo',
+    packuments: [{
+      version: '1.0.0',
+      dist: {
+        integrity: 'sha512-QqZ7VJ/8xPkS9s2IWB7Shj3qTJdcRyeXKbPQnsZjsPEwvutGv0EGeVchPca' +
+                   'uoiDFJlGbZMFq5GDCurAGNSghJQ==',
+        signatures: [
+          {
+            keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+            sig: 'MEUCIDrLNspFeU5NZ6d55ycVBZIMXnPJi/XnI1Y2dlJvK8P1AiEAnXjn1IOMUd+U7YfPH' +
+                 '+FNjwfLq+jCwfH8uaxocq+mpPk=',
+          },
+        ],
+      },
+    }],
+  })
+  await registry.package({ manifest })
+  registry.nock.get('/-/npm/v1/keys')
+    .reply(200, {
+      keys: [{
+        expires: null,
+        keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+        keytype: 'ecdsa-sha2-nistp256',
+        scheme: 'ecdsa-sha2-nistp256',
+        key: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Olb3zMAFFxXKHiIkQO5cJ3Yhl5i6UPp+' +
+             'IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg==',
+      }],
+    })
+
+  await npm.exec('audit', ['signatures'])
+  t.ok(process.exitCode, 'would have exited uncleanly')
+  process.exitCode = 0
+  t.matchSnapshot(joinedOutput())
 })

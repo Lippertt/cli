@@ -124,3 +124,8 @@ node_modules/test-dep-a
 To address all issues, run:
   npm audit fix
 `
+
+exports[`test/lib/commands/audit.js TAP signature verification with valid signatures > must match snapshot 1`] = `
+verified signatures, audited 1 packages in xxx
+
+`
