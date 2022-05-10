@@ -74,21 +74,22 @@ const validSignatureTree = {
     requires: true,
     packages: {
       '': {
-        xname: 'scratch',
+        name: 'scratch',
         version: '1.0.0',
         dependencies: {
-          'kms-demo': '1.0.0',
+          'kms-demo': '^1.0.0',
         },
         devDependencies: {},
       },
       'node_modules/kms-demo': {
-        name: 'kms-demo',
         version: '1.0.0',
+        resolved: 'https://registry.npmjs.org/kms-demo/-/kms-demo-1.0.0.tgz',
       },
     },
     dependencies: {
       'kms-demo': {
         version: '1.0.0',
+        resolved: 'https://registry.npmjs.org/kms-demo/-/kms-demo-1.0.0.tgz',
       },
     },
   }),
