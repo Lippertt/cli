@@ -1,12 +1,13 @@
+const fs = require('fs')
+const zlib = require('zlib')
+const path = require('path')
 const t = require('tap')
 
-const { load: loadMockNpm } = require('../../fixtures/mock-npm')
+const { load: loadMockNpm, fake: mockNpm } = require('../../fixtures/mock-npm')
 const MockRegistry = require('../../fixtures/mock-registry.js')
-const zlib = require('zlib')
-const gzip = zlib.gzipSync
+
 const gunzip = zlib.gunzipSync
-const path = require('path')
-const fs = require('fs')
+const gzip = zlib.gzipSync
 
 t.cleanSnapshot = str => str.replace(/packages in [0-9]+[a-z]+/g, 'packages in xxx')
 
@@ -57,42 +58,6 @@ const tree = {
     }),
     'fixed.txt': 'fixed test-dep-a',
   },
-}
-
-const validSignatureTree = {
-  'package.json': JSON.stringify({
-    name: 'test-dep',
-    version: '1.0.0',
-    dependencies: {
-      'kms-demo': '1.0.0',
-    },
-  }),
-  'package-lock.json': JSON.stringify({
-    name: 'test-dep',
-    version: '1.0.0',
-    lockfileVersion: 2,
-    requires: true,
-    packages: {
-      '': {
-        name: 'scratch',
-        version: '1.0.0',
-        dependencies: {
-          'kms-demo': '^1.0.0',
-        },
-        devDependencies: {},
-      },
-      'node_modules/kms-demo': {
-        version: '1.0.0',
-        resolved: 'https://registry.npmjs.org/kms-demo/-/kms-demo-1.0.0.tgz',
-      },
-    },
-    dependencies: {
-      'kms-demo': {
-        version: '1.0.0',
-        resolved: 'https://registry.npmjs.org/kms-demo/-/kms-demo-1.0.0.tgz',
-      },
-    },
-  }),
 }
 
 t.test('normal audit', async t => {
@@ -273,46 +238,116 @@ t.test('completion', async t => {
   })
 })
 
-t.test('signature verification with valid signatures', async t => {
-  const { npm, joinedOutput } = await loadMockNpm(t, {
-    prefixDir: validSignatureTree,
+t.test('audit signatures', async t => {
+  let npmOutput = []
+  const joinedOutput = () => npmOutput.join('\n')
+
+  const npm = mockNpm({
+    prefix: t.testdirName,
+    config: {
+      global: false,
+    },
+    flatOptions: {
+      workspacesEnabled: true,
+    },
+    output: (str) => {
+      npmOutput.push(str)
+    },
   })
+
   const registry = new MockRegistry({
     tap: t,
     registry: npm.config.get('registry'),
   })
-  const manifest = registry.manifest({
-    name: 'kms-demo',
-    packuments: [{
-      version: '1.0.0',
-      dist: {
-        integrity: 'sha512-QqZ7VJ/8xPkS9s2IWB7Shj3qTJdcRyeXKbPQnsZjsPEwvutGv0EGeVchPca' +
-                   'uoiDFJlGbZMFq5GDCurAGNSghJQ==',
-        signatures: [
-          {
-            keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
-            sig: 'MEUCIDrLNspFeU5NZ6d55ycVBZIMXnPJi/XnI1Y2dlJvK8P1AiEAnXjn1IOMUd+U7YfPH' +
-                 '+FNjwfLq+jCwfH8uaxocq+mpPk=',
-          },
-        ],
-      },
-    }],
+
+  const mocks = {
+    '../../../lib/utils/reify-finish.js': () => Promise.resolve(),
+  }
+  const Audit = t.mock('../../../lib/commands/audit.js', mocks)
+  const audit = new Audit(npm)
+
+  t.afterEach(() => {
+    npm.prefix = t.testdirName
+    npmOutput = []
   })
-  await registry.package({ manifest })
-  registry.nock.get('/-/npm/v1/keys')
-    .reply(200, {
-      keys: [{
-        expires: null,
-        keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
-        keytype: 'ecdsa-sha2-nistp256',
-        scheme: 'ecdsa-sha2-nistp256',
-        key: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Olb3zMAFFxXKHiIkQO5cJ3Yhl5i6UPp+' +
-             'IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg==',
-      }],
+
+  t.test('signature verification with valid signatures', async t => {
+    npm.prefix = t.testdir({
+      'package.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        dependencies: {
+          'kms-demo': '1.0.0',
+        },
+      }),
+      node_modules: {
+        'kms-demo': {
+          'package.json': JSON.stringify({
+            name: 'kms-demo',
+            version: '1.0.0',
+          }),
+        },
+      },
+      'package-lock.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        lockfileVersion: 2,
+        requires: true,
+        packages: {
+          '': {
+            name: 'scratch',
+            version: '1.0.0',
+            dependencies: {
+              'kms-demo': '^1.0.0',
+            },
+          },
+          'node_modules/kms-demo': {
+            version: '1.0.0',
+          },
+        },
+        dependencies: {
+          'kms-demo': {
+            version: '1.0.0',
+          },
+        },
+      }),
     })
 
-  await npm.exec('audit', ['signatures'])
-  t.ok(process.exitCode, 'would have exited uncleanly')
-  process.exitCode = 0
-  t.matchSnapshot(joinedOutput())
+    const manifest = registry.manifest({
+      name: 'kms-demo',
+      packuments: [{
+        version: '1.0.0',
+        dist: {
+          integrity: 'sha512-QqZ7VJ/8xPkS9s2IWB7Shj3qTJdcRyeXKbPQnsZjsPEwvutGv0EGeVchPca' +
+                     'uoiDFJlGbZMFq5GDCurAGNSghJQ==',
+          signatures: [
+            {
+              keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+              sig: 'MEUCIDrLNspFeU5NZ6d55ycVBZIMXnPJi/XnI1Y2dlJvK8P1AiEAnXjn1IOMUd+U7YfPH' +
+                   '+FNjwfLq+jCwfH8uaxocq+mpPk=',
+            },
+          ],
+        },
+      }],
+    })
+    await registry.package({ manifest })
+    registry.nock.get('/-/npm/v1/keys')
+      .reply(200, {
+        keys: [{
+          expires: null,
+          keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+          keytype: 'ecdsa-sha2-nistp256',
+          scheme: 'ecdsa-sha2-nistp256',
+          key: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Olb3zMAFFxXKHiIkQO5cJ3Yhl5i6UPp+' +
+               'IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg==',
+        }],
+      })
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 0, 'should exit successfully')
+    process.exitCode = 0
+    t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
+    t.matchSnapshot(joinedOutput())
+  })
 })

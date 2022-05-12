@@ -41,6 +41,11 @@ added 1 package, and audited 2 packages in xxx
 found 0 vulnerabilities
 `
 
+exports[`test/lib/commands/audit.js TAP audit signatures signature verification with valid signatures > must match snapshot 1`] = `
+verified registry signatures, audited 1 packages in xxx
+
+`
+
 exports[`test/lib/commands/audit.js TAP fallback audit > must match snapshot 1`] = `
 # npm audit report
 
@@ -123,9 +128,4 @@ node_modules/test-dep-a
 
 To address all issues, run:
   npm audit fix
-`
-
-exports[`test/lib/commands/audit.js TAP signature verification with valid signatures > must match snapshot 1`] = `
-verified signatures, audited 1 packages in xxx
-
 `
