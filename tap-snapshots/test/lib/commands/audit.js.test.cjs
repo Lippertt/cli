@@ -41,6 +41,11 @@ added 1 package, and audited 2 packages in xxx
 found 0 vulnerabilities
 `
 
+exports[`test/lib/commands/audit.js TAP audit signatures ignores optional dependencies > must match snapshot 1`] = `
+verified registry signatures, audited 1 packages in xxx
+
+`
+
 exports[`test/lib/commands/audit.js TAP audit signatures json output with invalid and missing signatures > must match snapshot 1`] = `
 {
   "invalid": {

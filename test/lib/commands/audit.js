@@ -324,6 +324,107 @@ t.test('audit signatures', async t => {
     })
   }
 
+  function noInstall () {
+    return t.testdir({
+      'package.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        dependencies: {
+          'kms-demo': '1.0.0',
+        },
+      }),
+      'package-lock.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        lockfileVersion: 2,
+        requires: true,
+        packages: {
+          '': {
+            name: 'scratch',
+            version: '1.0.0',
+            dependencies: {
+              'kms-demo': '^1.0.0',
+            },
+          },
+          'node_modules/kms-demo': {
+            version: '1.0.0',
+          },
+        },
+        dependencies: {
+          'kms-demo': {
+            version: '1.0.0',
+          },
+        },
+      }),
+    })
+  }
+
+  function workspaceInstall () {
+    return t.testdir({
+      'package.json': JSON.stringify({
+        name: 'workspaces-project',
+        version: '1.0.0',
+        workspaces: ['packages/*'],
+        dependencies: {
+          'kms-demo': '^1.0.0',
+        },
+      }),
+      node_modules: {
+        a: t.fixture('symlink', '../packages/a'),
+        b: t.fixture('symlink', '../packages/b'),
+        c: t.fixture('symlink', '../packages/c'),
+        'kms-demo': {
+          'package.json': JSON.stringify({
+            name: 'kms-demo',
+            version: '1.0.0',
+          }),
+        },
+        foo: {
+          'package.json': JSON.stringify({
+            name: 'foo',
+            version: '1.0.0',
+          }),
+        },
+        zeta: {
+          'package.json': JSON.stringify({
+            name: 'zeta',
+            version: '1.0.0',
+          }),
+        },
+      },
+      packages: {
+        a: {
+          'package.json': JSON.stringify({
+            name: 'a',
+            version: '1.0.0',
+            dependencies: {
+              b: '^1.0.0',
+              foo: '^1.0.0',
+            },
+          }),
+        },
+        b: {
+          'package.json': JSON.stringify({
+            name: 'b',
+            version: '1.0.0',
+            dependencies: {
+              zeta: '^1.0.0',
+            },
+          }),
+        },
+        c: {
+          'package.json': JSON.stringify({
+            name: 'c',
+            version: '1.0.0',
+            dependencies: {
+              theta: '^1.0.0',
+            },
+          }),
+        },
+      },
+    })
+  }
+
   function installWithMultipleDeps () {
     return t.testdir({
       'package.json': JSON.stringify({
@@ -381,6 +482,55 @@ t.test('audit signatures', async t => {
         devDependencies: {
           async: {
             version: '1.1.1',
+          },
+        },
+      }),
+    })
+  }
+
+  function installWithOptionalDeps () {
+    return t.testdir({
+      'package.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        dependencies: {
+          'kms-demo': '^1.0.0',
+        },
+        optionalDependencies: {
+          lorem: '^1.0.0',
+        },
+      }, null, 2),
+      node_modules: {
+        'kms-demo': {
+          'package.json': JSON.stringify({
+            name: 'kms-demo',
+            version: '1.0.0',
+          }),
+        },
+      },
+      'package-lock.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        lockfileVersion: 2,
+        requires: true,
+        packages: {
+          '': {
+            name: 'scratch',
+            version: '1.0.0',
+            dependencies: {
+              'kms-demo': '^1.0.0',
+            },
+            optionalDependencies: {
+              lorem: '^1.0.0',
+            },
+          },
+          'node_modules/kms-demo': {
+            version: '1.0.0',
+          },
+        },
+        dependencies: {
+          'kms-demo': {
+            version: '1.0.0',
           },
         },
       }),
@@ -686,5 +836,158 @@ t.test('audit signatures', async t => {
     process.exitCode = 0
     t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
     t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('errors with an empty install', async t => {
+    npm.prefix = t.testdir({
+      'package.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+      }),
+    })
+
+    await t.rejects(
+      audit.exec(['signatures']),
+      /No dependencies found in current install/
+    )
+  })
+
+  t.test('errors when the keys endpoint errors', async t => {
+    npm.prefix = installWithMultipleDeps()
+    registry.nock.get('/-/npm/v1/keys')
+      .reply(500, { error: 'keys broke' })
+
+    await t.rejects(
+      audit.exec(['signatures']),
+      /keys broke/
+    )
+  })
+
+  t.test('ignores optional dependencies', async t => {
+    npm.prefix = installWithOptionalDeps()
+
+    await manifestWithValidSigs()
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 0, 'should exit successfully')
+    process.exitCode = 0
+    t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('errors when no installed dependencies', async t => {
+    npm.prefix = noInstall()
+    validKeys()
+
+    await t.rejects(
+      audit.exec(['signatures']),
+      /No dependencies found in current install/
+    )
+  })
+
+  t.test('should skip missing non-prod deps', async t => {
+    npm.prefix = t.testdir({
+      'package.json': JSON.stringify({
+        name: 'delta',
+        version: '1.0.0',
+        devDependencies: {
+          chai: '^1.0.0',
+        },
+      }, null, 2),
+      node_modules: {},
+    })
+
+    validKeys()
+
+    await t.rejects(
+      audit.exec(['signatures']),
+      /No dependencies found in current install/
+    )
+  })
+
+  t.test('should skip invalid pkg ranges', async t => {
+    npm.prefix = t.testdir({
+      'package.json': JSON.stringify({
+        name: 'delta',
+        version: '1.0.0',
+        dependencies: {
+          cat: '>=^2',
+        },
+      }, null, 2),
+      node_modules: {
+        cat: {
+          'package.json': JSON.stringify({
+            name: 'cat',
+            version: '1.0.0',
+          }, null, 2),
+        },
+      },
+    })
+    validKeys()
+
+    await t.rejects(
+      audit.exec(['signatures']),
+      /No dependencies found in current install/
+    )
+  })
+
+  t.test('should skip git specs', async t => {
+    npm.prefix = t.testdir({
+      'package.json': JSON.stringify({
+        name: 'delta',
+        version: '1.0.0',
+        dependencies: {
+          cat: 'github:username/foo',
+        },
+      }, null, 2),
+      node_modules: {
+        cat: {
+          'package.json': JSON.stringify({
+            name: 'cat',
+            version: '1.0.0',
+          }, null, 2),
+        },
+      },
+    })
+
+    validKeys()
+
+    await t.rejects(
+      audit.exec(['signatures']),
+      /No dependencies found in current install/
+    )
+  })
+
+  t.test('workspaces', async t => {
+    t.test('verifies registry deps and ignores local workspace deps', { todo: true }, async t => {
+      npm.prefix = workspaceInstall()
+      await manifestWithValidSigs()
+      validKeys()
+
+      await audit.exec(['signatures'])
+
+      t.equal(process.exitCode, 0, 'should exit successfully')
+      process.exitCode = 0
+      t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
+      t.matchSnapshot(joinedOutput())
+    })
+
+    // TODO: This should verify kms-demo, but doesn't because arborist filters
+    // workspace deps even if they're also root deps
+    t.test('verifies registry dep if workspaces is disabled', { todo: true }, async t => {
+      npm.prefix = workspaceInstall()
+      npm.flatOptions.workspacesEnabled = false
+      await manifestWithValidSigs()
+      validKeys()
+
+      await audit.exec(['signatures'])
+
+      t.equal(process.exitCode, 0, 'should exit successfully')
+      process.exitCode = 0
+      t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
+      t.matchSnapshot(joinedOutput())
+    })
   })
 })
