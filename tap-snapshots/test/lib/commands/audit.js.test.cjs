@@ -87,7 +87,7 @@ verified registry signatures, audited 1 packages in xxx
 exports[`test/lib/commands/audit.js TAP audit signatures output details about missing signatures > must match snapshot 1`] = `
 audited 1 packages in xxx
 
-1 package has a [1m[35mmissing[39m[22m registry signature but the registry is providing signing keys:
+1 package has a missing registry signature but the registry is providing signing keys:
 
 kms-demo@1.0.0
 `
@@ -95,12 +95,23 @@ kms-demo@1.0.0
 exports[`test/lib/commands/audit.js TAP audit signatures with both invalid and missing signatures > must match snapshot 1`] = `
 audited 2 packages in xxx
 
-1 package has a [1m[35mmissing[39m[22m registry signature but the registry is providing signing keys
+1 package has a missing registry signature but the registry is providing signing keys
   run \`npm audit signatures --missing\` for details
+
+1 package has an invalid registry signature:
+
+kms-demo@1.0.0
+
+Someone might have tampered with the package since it was published on the registry (monster-in-the-middle attack)!
+
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures with colour option and invalid signatures > must match snapshot 1`] = `
+audited 1 packages in xxx
 
 1 package has an [1m[31minvalid[39m[22m registry signature:
 
-kms-demo@1.0.0
+[31mkms-demo@1.0.0[39m
 
 Someone might have tampered with the package since it was published on the registry (monster-in-the-middle attack)!
 
@@ -109,7 +120,7 @@ Someone might have tampered with the package since it was published on the regis
 exports[`test/lib/commands/audit.js TAP audit signatures with invalid signatures > must match snapshot 1`] = `
 audited 1 packages in xxx
 
-1 package has an [1m[31minvalid[39m[22m registry signature:
+1 package has an invalid registry signature:
 
 kms-demo@1.0.0
 
@@ -120,16 +131,16 @@ Someone might have tampered with the package since it was published on the regis
 exports[`test/lib/commands/audit.js TAP audit signatures with keys but missing signature > must match snapshot 1`] = `
 audited 1 packages in xxx
 
-1 package has a [1m[35mmissing[39m[22m registry signature but the registry is providing signing keys
+1 package has a missing registry signature but the registry is providing signing keys
   run \`npm audit signatures --missing\` for details
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures with valid and missing signatures > must match snapshot 1`] = `
 audited 2 packages in xxx
 
-1 packages have [1mverified[22m registry signatures
+1 packages have verified registry signatures
 
-1 package has a [1m[35mmissing[39m[22m registry signature but the registry is providing signing keys
+1 package has a missing registry signature but the registry is providing signing keys
   run \`npm audit signatures --missing\` for details
 `
 

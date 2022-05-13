@@ -254,6 +254,7 @@ t.test('audit signatures', async t => {
   t.beforeEach(() => {
     npm = mockNpm({
       prefix: t.testdirName,
+      color: false,
       config: {
         global: false,
         missing: false,
@@ -495,6 +496,24 @@ t.test('audit signatures', async t => {
     t.matchSnapshot(joinedOutput())
   })
 
+  t.test('with colour option and invalid signatures', async t => {
+    npm.prefix = validInstall()
+    npm.color = true
+    await manifestWithInvalidSigs()
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 1, 'should exit with error')
+    process.exitCode = 0
+    t.match(
+      joinedOutput(),
+      /* eslint-disable-next-line no-control-regex */
+      /\u001b\[1m\u001b\[31minvalid\u001b\[39m\u001b\[22m registry signature/
+    )
+    t.matchSnapshot(joinedOutput())
+  })
+
   t.test('with invalid signatures', async t => {
     npm.prefix = validInstall()
     await manifestWithInvalidSigs()
@@ -504,7 +523,7 @@ t.test('audit signatures', async t => {
 
     t.equal(process.exitCode, 1, 'should exit with error')
     process.exitCode = 0
-    t.match(joinedOutput(), /invalid/)
+    t.match(joinedOutput(), /invalid registry signature/)
     t.match(joinedOutput(), /kms-demo@1.0.0/)
     t.matchSnapshot(joinedOutput())
   })
@@ -520,8 +539,8 @@ t.test('audit signatures', async t => {
     t.equal(process.exitCode, 1, 'should exit with error')
     process.exitCode = 0
     t.match(joinedOutput(), /audited 2 packages/)
-    t.match(joinedOutput(), /verified/)
-    t.match(joinedOutput(), /missing/)
+    t.match(joinedOutput(), /verified registry signatures/)
+    t.match(joinedOutput(), /missing registry signature/)
     t.matchSnapshot(joinedOutput())
   })
 
