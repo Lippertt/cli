@@ -239,40 +239,49 @@ t.test('completion', async t => {
 })
 
 t.test('audit signatures', async t => {
-  let npmOutput = []
-  const joinedOutput = () => npmOutput.join('\n')
-
-  const npm = mockNpm({
-    prefix: t.testdirName,
-    config: {
-      global: false,
-    },
-    flatOptions: {
-      workspacesEnabled: true,
-    },
-    output: (str) => {
-      npmOutput.push(str)
-    },
-  })
-
-  const registry = new MockRegistry({
-    tap: t,
-    registry: npm.config.get('registry'),
-  })
-
   const mocks = {
     '../../../lib/utils/reify-finish.js': () => Promise.resolve(),
   }
   const Audit = t.mock('../../../lib/commands/audit.js', mocks)
-  const audit = new Audit(npm)
+
+  let npmOutput = []
+  const joinedOutput = () => npmOutput.join('\n')
+
+  let npm
+  let audit
+  let registry
+
+  t.beforeEach(() => {
+    npm = mockNpm({
+      prefix: t.testdirName,
+      config: {
+        global: false,
+        missing: false,
+        json: false,
+        omit: [],
+      },
+      flatOptions: {
+        workspacesEnabled: true,
+      },
+      output: (str) => {
+        npmOutput.push(str)
+      },
+    })
+
+    audit = new Audit(npm)
+
+    registry = new MockRegistry({
+      tap: t,
+      registry: npm.config.get('registry'),
+    })
+  })
 
   t.afterEach(() => {
-    npm.prefix = t.testdirName
     npmOutput = []
   })
 
-  t.test('signature verification with valid signatures', async t => {
-    npm.prefix = t.testdir({
+  function validInstall () {
+    return t.testdir({
       'package.json': JSON.stringify({
         name: 'test-dep',
         version: '1.0.0',
@@ -312,12 +321,78 @@ t.test('audit signatures', async t => {
         },
       }),
     })
+  }
 
+  function installWithMultipleDeps () {
+    return t.testdir({
+      'package.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        dependencies: {
+          'kms-demo': '^1.0.0',
+        },
+        devDependencies: {
+          async: '~1.1.0',
+        },
+      }),
+      node_modules: {
+        'kms-demo': {
+          'package.json': JSON.stringify({
+            name: 'kms-demo',
+            version: '1.0.0',
+          }),
+        },
+        async: {
+          'package.json': JSON.stringify({
+            name: 'async',
+            version: '1.1.1',
+          }),
+        },
+      },
+      'package-lock.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        lockfileVersion: 2,
+        requires: true,
+        packages: {
+          '': {
+            name: 'scratch',
+            version: '1.0.0',
+            dependencies: {
+              'kms-demo': '^1.0.0',
+            },
+            devDependencies: {
+              async: '~1.0.0',
+            },
+          },
+          'node_modules/kms-demo': {
+            version: '1.0.0',
+          },
+          'node_modules/async': {
+            version: '1.1.1',
+          },
+        },
+        dependencies: {
+          'kms-demo': {
+            version: '1.0.0',
+          },
+        },
+        devDependencies: {
+          async: {
+            version: '1.1.1',
+          },
+        },
+      }),
+    })
+  }
+
+  async function manifestWithValidSigs () {
     const manifest = registry.manifest({
       name: 'kms-demo',
       packuments: [{
         version: '1.0.0',
         dist: {
+          tarball: 'https://registry.npmjs.org/kms-demo/-/kms-demo-1.0.0.tgz',
           integrity: 'sha512-QqZ7VJ/8xPkS9s2IWB7Shj3qTJdcRyeXKbPQnsZjsPEwvutGv0EGeVchPca' +
                      'uoiDFJlGbZMFq5GDCurAGNSghJQ==',
           signatures: [
@@ -331,6 +406,41 @@ t.test('audit signatures', async t => {
       }],
     })
     await registry.package({ manifest })
+  }
+
+  async function manifestWithInvalidSigs () {
+    const manifest = registry.manifest({
+      name: 'kms-demo',
+      packuments: [{
+        version: '1.0.0',
+        dist: {
+          tarball: 'https://registry.npmjs.org/kms-demo/-/kms-demo-1.0.0.tgz',
+          integrity: 'sha512-QqZ7VJ/8xPkS9s2IWB7Shj3qTJdcRyeXKbPQnsZjsPEwvutGv0EGeVchPca' +
+                     'uoiDFJlGbZMFq5GDCurAGNSghJQ==',
+          signatures: [
+            {
+              keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+              sig: 'MEUCIQCX/49atNeSDYZP8betYWEqB0G8zZnIyB7ibC7nRNyMiQIgHosOKHhVT' +
+                   'VNBI/6iUNSpDokOc44zsZ7TfybMKj8YdfY=',
+            },
+          ],
+        },
+      }],
+    })
+    await registry.package({ manifest })
+  }
+
+  async function manifestWithoutSigs (name = 'kms-demo', version = '1.0.0') {
+    const manifest = registry.manifest({
+      name,
+      packuments: [{
+        version,
+      }],
+    })
+    await registry.package({ manifest })
+  }
+
+  function validKeys () {
     registry.nock.get('/-/npm/v1/keys')
       .reply(200, {
         keys: [{
@@ -342,6 +452,214 @@ t.test('audit signatures', async t => {
                'IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg==',
         }],
       })
+  }
+
+  function mismatchingKeys () {
+    registry.nock.get('/-/npm/v1/keys')
+      .reply(200, {
+        keys: [{
+          expires: null,
+          keyid: 'SHA256:2l3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+          keytype: 'ecdsa-sha2-nistp256',
+          scheme: 'ecdsa-sha2-nistp256',
+          key: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Olb3zMAFFxXKHiIkQO5cJ3Yhl5i6UPp+' +
+               'IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg==',
+        }],
+      })
+  }
+
+  function expiredKeys () {
+    registry.nock.get('/-/npm/v1/keys')
+      .reply(200, {
+        keys: [{
+          expires: '2021-01-11T15:45:42.144Z',
+          keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+          keytype: 'ecdsa-sha2-nistp256',
+          scheme: 'ecdsa-sha2-nistp256',
+          key: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Olb3zMAFFxXKHiIkQO5cJ3Yhl5i6UPp+' +
+               'IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg==',
+        }],
+      })
+  }
+
+  t.test('with valid signatures', async t => {
+    npm.prefix = validInstall()
+    await manifestWithValidSigs()
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 0, 'should exit successfully')
+    process.exitCode = 0
+    t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('with invalid signatures', async t => {
+    npm.prefix = validInstall()
+    await manifestWithInvalidSigs()
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 1, 'should exit with error')
+    process.exitCode = 0
+    t.match(joinedOutput(), /invalid/)
+    t.match(joinedOutput(), /kms-demo@1.0.0/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('with valid and missing signatures', async t => {
+    npm.prefix = installWithMultipleDeps()
+    await manifestWithValidSigs()
+    await manifestWithoutSigs('async', '1.1.1')
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 1, 'should exit with error')
+    process.exitCode = 0
+    t.match(joinedOutput(), /audited 2 packages/)
+    t.match(joinedOutput(), /verified/)
+    t.match(joinedOutput(), /missing/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('with both invalid and missing signatures', async t => {
+    npm.prefix = installWithMultipleDeps()
+    await manifestWithInvalidSigs()
+    await manifestWithoutSigs('async', '1.1.1')
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 1, 'should exit with error')
+    process.exitCode = 0
+    t.match(joinedOutput(), /audited 2 packages/)
+    t.match(joinedOutput(), /invalid/)
+    t.match(joinedOutput(), /missing/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('with signatures but no public keys', async t => {
+    npm.prefix = validInstall()
+    await manifestWithValidSigs()
+    registry.nock.get('/-/npm/v1/keys')
+      .reply(404)
+
+    await t.rejects(
+      audit.exec(['signatures']),
+      /no corresponding public key can be found on https:\/\/registry.npmjs.org\/-\/npm\/v1\/keys/,
+      'should throw with error'
+    )
+  })
+
+  t.test('with signatures but the public keys are expired', async t => {
+    npm.prefix = validInstall()
+    await manifestWithValidSigs()
+    expiredKeys()
+
+    await t.rejects(
+      audit.exec(['signatures']),
+      /the corresponding public key on https:\/\/registry.npmjs.org\/-\/npm\/v1\/keys has expired/,
+      'should throw with error'
+    )
+  })
+
+  t.test('with signatures but the public keyid does not match', async t => {
+    npm.prefix = validInstall()
+    await manifestWithValidSigs()
+    mismatchingKeys()
+
+    await t.rejects(
+      audit.exec(['signatures']),
+      /no corresponding public key can be found on https:\/\/registry.npmjs.org\/-\/npm\/v1\/keys/,
+      'should throw with error'
+    )
+  })
+
+  t.test('with keys but missing signature', async t => {
+    npm.prefix = validInstall()
+    await manifestWithoutSigs()
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 1, 'should exit with error')
+    process.exitCode = 0
+    t.match(
+      joinedOutput(),
+      /registry is providing signing keys/
+    )
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('output details about missing signatures', async t => {
+    npm.prefix = validInstall()
+    npm.config.set('missing', true)
+    await manifestWithoutSigs()
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 1, 'should exit with error')
+    process.exitCode = 0
+    t.match(
+      joinedOutput(),
+      /kms-demo/
+    )
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('json output with valid signatures', async t => {
+    npm.prefix = validInstall()
+    npm.config.set('json', true)
+    await manifestWithValidSigs()
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 0, 'should exit successfully')
+    process.exitCode = 0
+    t.match(joinedOutput(), /{}/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('json output with invalid signatures', async t => {
+    npm.prefix = validInstall()
+    npm.config.set('json', true)
+    await manifestWithInvalidSigs()
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 1, 'should exit with error')
+    process.exitCode = 0
+    t.match(joinedOutput(), /"invalid": {\n\s+"node_modules\/kms-demo": {/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('json output with invalid and missing signatures', async t => {
+    npm.prefix = installWithMultipleDeps()
+    npm.config.set('json', true)
+    await manifestWithInvalidSigs()
+    await manifestWithoutSigs('async', '1.1.1')
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 1, 'should exit with error')
+    process.exitCode = 0
+    t.match(joinedOutput(), /"invalid": {\n\s+"node_modules\/kms-demo": {/)
+    t.match(joinedOutput(), /"missing": {\n\s+"node_modules\/async": {/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('omit dev dependencies with missing signature', async t => {
+    npm.prefix = installWithMultipleDeps()
+    npm.config.set('omit', ['dev'])
+    await manifestWithValidSigs()
+    validKeys()
 
     await audit.exec(['signatures'])
 
