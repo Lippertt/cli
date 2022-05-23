@@ -871,24 +871,6 @@ t.test('audit signatures', async t => {
     t.matchSnapshot(joinedOutput())
   })
 
-  t.test('with colour option and invalid signatures', async t => {
-    npm.prefix = validInstall()
-    npm.color = true
-    await manifestWithInvalidSigs()
-    validKeys()
-
-    await audit.exec(['signatures'])
-
-    t.equal(process.exitCode, 1, 'should exit with error')
-    process.exitCode = 0
-    t.match(
-      joinedOutput(),
-      /* eslint-disable-next-line no-control-regex */
-      /\u001b\[1m\u001b\[31minvalid\u001b\[39m\u001b\[22m registry signature/
-    )
-    t.matchSnapshot(joinedOutput())
-  })
-
   t.test('with invalid signatures', async t => {
     npm.prefix = validInstall()
     await manifestWithInvalidSigs()
@@ -916,20 +898,6 @@ t.test('audit signatures', async t => {
     t.match(joinedOutput(), /audited 2 packages/)
     t.match(joinedOutput(), /verified registry signatures/)
     t.match(joinedOutput(), /missing registry signature/)
-    t.matchSnapshot(joinedOutput())
-  })
-
-  t.test('with color and both valid and missing signatures', async t => {
-    npm.prefix = installWithMultipleDeps()
-    npm.color = true
-    await manifestWithValidSigs()
-    await manifestWithoutSigs('async', '1.1.1')
-    validKeys()
-
-    await audit.exec(['signatures'])
-
-    t.equal(process.exitCode, 1, 'should exit with error')
-    process.exitCode = 0
     t.matchSnapshot(joinedOutput())
   })
 
@@ -962,36 +930,8 @@ t.test('audit signatures', async t => {
     t.matchSnapshot(joinedOutput())
   })
 
-  t.test('with color and multiple invalid signatures', async t => {
-    npm.prefix = installWithMultipleDeps()
-    npm.color = true
-    await manifestWithInvalidSigs('kms-demo', '1.0.0')
-    await manifestWithInvalidSigs('async', '1.1.1')
-    validKeys()
-
-    await audit.exec(['signatures'])
-
-    t.equal(process.exitCode, 1, 'should exit with error')
-    process.exitCode = 0
-    t.matchSnapshot(joinedOutput())
-  })
-
   t.test('with multiple missing signatures', async t => {
     npm.prefix = installWithMultipleDeps()
-    await manifestWithoutSigs('kms-demo', '1.0.0')
-    await manifestWithoutSigs('async', '1.1.1')
-    validKeys()
-
-    await audit.exec(['signatures'])
-
-    t.equal(process.exitCode, 1, 'should exit with error')
-    process.exitCode = 0
-    t.matchSnapshot(joinedOutput())
-  })
-
-  t.test('with color and multiple missing signatures', async t => {
-    npm.prefix = installWithMultipleDeps()
-    npm.color = true
     await manifestWithoutSigs('kms-demo', '1.0.0')
     await manifestWithoutSigs('async', '1.1.1')
     validKeys()
@@ -1452,6 +1392,68 @@ t.test('audit signatures', async t => {
       audit.exec(['signatures']),
       /No dependencies found in current install/
     )
+  })
+
+  t.test('with color output enabled', async t => {
+    t.test('with invalid signatures', async t => {
+      npm.prefix = validInstall()
+      npm.color = true
+      await manifestWithInvalidSigs()
+      validKeys()
+
+      await audit.exec(['signatures'])
+
+      t.equal(process.exitCode, 1, 'should exit with error')
+      process.exitCode = 0
+      t.match(
+        joinedOutput(),
+        /* eslint-disable-next-line no-control-regex */
+        /\u001b\[1m\u001b\[31minvalid\u001b\[39m\u001b\[22m registry signature/
+      )
+      t.matchSnapshot(joinedOutput())
+    })
+
+    t.test('with both valid and missing signatures', async t => {
+      npm.prefix = installWithMultipleDeps()
+      npm.color = true
+      await manifestWithValidSigs()
+      await manifestWithoutSigs('async', '1.1.1')
+      validKeys()
+
+      await audit.exec(['signatures'])
+
+      t.equal(process.exitCode, 1, 'should exit with error')
+      process.exitCode = 0
+      t.matchSnapshot(joinedOutput())
+    })
+
+    t.test('with multiple invalid signatures', async t => {
+      npm.prefix = installWithMultipleDeps()
+      npm.color = true
+      await manifestWithInvalidSigs('kms-demo', '1.0.0')
+      await manifestWithInvalidSigs('async', '1.1.1')
+      validKeys()
+
+      await audit.exec(['signatures'])
+
+      t.equal(process.exitCode, 1, 'should exit with error')
+      process.exitCode = 0
+      t.matchSnapshot(joinedOutput())
+    })
+
+    t.test('with multiple missing signatures', async t => {
+      npm.prefix = installWithMultipleDeps()
+      npm.color = true
+      await manifestWithoutSigs('kms-demo', '1.0.0')
+      await manifestWithoutSigs('async', '1.1.1')
+      validKeys()
+
+      await audit.exec(['signatures'])
+
+      t.equal(process.exitCode, 1, 'should exit with error')
+      process.exitCode = 0
+      t.matchSnapshot(joinedOutput())
+    })
   })
 
   t.test('workspaces', async t => {

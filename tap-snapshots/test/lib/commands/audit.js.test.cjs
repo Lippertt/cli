@@ -148,7 +148,7 @@ verified registry signatures, audited 1 package in 0s
 
 `
 
-exports[`test/lib/commands/audit.js TAP audit signatures with color and both valid and missing signatures > must match snapshot 1`] = `
+exports[`test/lib/commands/audit.js TAP audit signatures with color output enabled with both valid and missing signatures > must match snapshot 1`] = `
 audited 2 packages in xxx
 
 1 packages have [1mverified[22m registry signatures
@@ -157,7 +157,18 @@ audited 2 packages in xxx
   run \`npm audit signatures --missing\` for details
 `
 
-exports[`test/lib/commands/audit.js TAP audit signatures with color and multiple invalid signatures > must match snapshot 1`] = `
+exports[`test/lib/commands/audit.js TAP audit signatures with color output enabled with invalid signatures > must match snapshot 1`] = `
+audited 1 package in 0s
+
+1 package has an [1m[31minvalid[39m[22m registry signature:
+
+[31mkms-demo@1.0.0[39m
+
+Someone might have tampered with the package since it was published on the registry (monster-in-the-middle attack)!
+
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures with color output enabled with multiple invalid signatures > must match snapshot 1`] = `
 audited 2 packages in xxx
 
 2 packages have [1m[31minvalid[39m[22m registry signatures:
@@ -169,22 +180,11 @@ Someone might have tampered with the packages since it was published on the regi
 
 `
 
-exports[`test/lib/commands/audit.js TAP audit signatures with color and multiple missing signatures > must match snapshot 1`] = `
+exports[`test/lib/commands/audit.js TAP audit signatures with color output enabled with multiple missing signatures > must match snapshot 1`] = `
 audited 2 packages in xxx
 
 2 packages have [1m[35mmissing[39m[22m registry signatures but the registry is providing signing keys
   run \`npm audit signatures --missing\` for details
-`
-
-exports[`test/lib/commands/audit.js TAP audit signatures with colour option and invalid signatures > must match snapshot 1`] = `
-audited 1 package in 0s
-
-1 package has an [1m[31minvalid[39m[22m registry signature:
-
-[31mkms-demo@1.0.0[39m
-
-Someone might have tampered with the package since it was published on the registry (monster-in-the-middle attack)!
-
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures with invalid signatures > must match snapshot 1`] = `
