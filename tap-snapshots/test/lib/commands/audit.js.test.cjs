@@ -84,6 +84,11 @@ exports[`test/lib/commands/audit.js TAP audit signatures json output with valid 
 {}
 `
 
+exports[`test/lib/commands/audit.js TAP audit signatures multiple registries with keys and signatures > must match snapshot 1`] = `
+verified registry signatures, audited 2 packages in xxx
+
+`
+
 exports[`test/lib/commands/audit.js TAP audit signatures omit dev dependencies with missing signature > must match snapshot 1`] = `
 verified registry signatures, audited 1 package in 0s
 
@@ -95,6 +100,22 @@ audited 1 package in 0s
 1 package has a missing registry signature but the registry is providing signing keys:
 
 kms-demo@1.0.0
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures third-party registry with keys and missing signatures errors > must match snapshot 1`] = `
+audited 1 package in 0s
+
+1 package has a missing registry signature but the registry is providing signing keys
+  run \`npm audit signatures --missing\` for details
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures third-party registry with keys and signatures > must match snapshot 1`] = `
+verified registry signatures, audited 1 package in 0s
+
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures third-party registry without keys does not verify > must match snapshot 1`] = `
+
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures with both invalid and missing signatures > must match snapshot 1`] = `

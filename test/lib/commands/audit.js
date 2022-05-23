@@ -534,6 +534,106 @@ t.test('audit signatures', async t => {
     })
   }
 
+  function installWithMultipleRegistries () {
+    return t.testdir({
+      'package.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        dependencies: {
+          '@npmcli/arborist': '^1.0.0',
+          'kms-demo': '^1.0.0',
+        },
+      }),
+      node_modules: {
+        '@npmcli/arborist': {
+          'package.json': JSON.stringify({
+            name: '@npmcli/arborist',
+            version: '1.0.14',
+          }),
+        },
+        'kms-demo': {
+          'package.json': JSON.stringify({
+            name: 'kms-demo',
+            version: '1.0.0',
+          }),
+        },
+      },
+      'package-lock.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        lockfileVersion: 2,
+        requires: true,
+        packages: {
+          '': {
+            name: 'test-dep',
+            version: '1.0.0',
+            dependencies: {
+              '@npmcli/arborist': '^1.0.0',
+              'kms-demo': '^1.0.0',
+            },
+          },
+          'node_modules/@npmcli/arborist': {
+            version: '1.0.14',
+          },
+          'node_modules/kms-demo': {
+            version: '1.0.0',
+          },
+        },
+        dependencies: {
+          '@npmcli/arborist': {
+            version: '1.0.14',
+          },
+          'kms-demo': {
+            version: '1.0.0',
+          },
+        },
+      }),
+    })
+  }
+
+  function installWithThirdPartyRegistry () {
+    return t.testdir({
+      'package.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        dependencies: {
+          '@npmcli/arborist': '^1.0.0',
+        },
+      }),
+      node_modules: {
+        '@npmcli/arborist': {
+          'package.json': JSON.stringify({
+            name: '@npmcli/arborist',
+            version: '1.0.14',
+          }),
+        },
+      },
+      'package-lock.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        lockfileVersion: 2,
+        requires: true,
+        packages: {
+          '': {
+            name: 'test-dep',
+            version: '1.0.0',
+            dependencies: {
+              '@npmcli/arborist': '^1.0.0',
+            },
+          },
+          'node_modules/@npmcli/arborist': {
+            version: '1.0.14',
+          },
+        },
+        dependencies: {
+          '@npmcli/arborist': {
+            version: '1.0.14',
+          },
+        },
+      }),
+    })
+  }
+
   async function manifestWithValidSigs () {
     const manifest = registry.manifest({
       name: 'kms-demo',
@@ -832,6 +932,160 @@ t.test('audit signatures', async t => {
     t.equal(process.exitCode, 0, 'should exit successfully')
     process.exitCode = 0
     t.match(joinedOutput(), /verified registry signatures, audited 1 package/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('third-party registry without keys does not verify', async t => {
+    npm.prefix = installWithThirdPartyRegistry()
+    const registryUrl = 'https://verdaccio-clone.org'
+    npm.flatOptions['@npmcli:registry'] = registryUrl
+    registry = new MockRegistry({
+      tap: t,
+      registry: registryUrl,
+    })
+
+    t.equal(process.exitCode, 0, 'should exit successfully')
+    process.exitCode = 0
+    t.match(joinedOutput(), '')
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('third-party registry with keys and signatures', async t => {
+    npm.prefix = installWithThirdPartyRegistry()
+    const registryUrl = 'https://verdaccio-clone.org'
+    npm.flatOptions['@npmcli:registry'] = registryUrl
+    const thirdPartyRegistry = new MockRegistry({
+      tap: t,
+      registry: registryUrl,
+    })
+
+    const manifest = thirdPartyRegistry.manifest({
+      name: '@npmcli/arborist',
+      packuments: [{
+        version: '1.0.14',
+        dist: {
+          tarball: 'https://registry.npmjs.org/@npmcli/arborist/-/@npmcli/arborist-1.0.14.tgz',
+          integrity: 'sha512-caa8hv5rW9VpQKk6tyNRvSaVDySVjo9GkI7Wj/wcsFyxPm3tYrE' +
+                     'sFyTjSnJH8HCIfEGVQNjqqKXaXLFVp7UBag==',
+          signatures: [
+            {
+              keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+              sig: 'MEUCIAvNpR3G0j7WOPUuVMhE0ZdM8PnDNcsoeFD8Iwz9YWIMAiEAn8cicDC2' +
+                   'Sf9MFQydqTv6S5XYsAh9Af1sig1nApNI11M=',
+            },
+          ],
+        },
+      }],
+    })
+    await thirdPartyRegistry.package({ manifest })
+    thirdPartyRegistry.nock.get('/-/npm/v1/keys')
+      .reply(200, {
+        keys: [{
+          expires: null,
+          keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+          keytype: 'ecdsa-sha2-nistp256',
+          scheme: 'ecdsa-sha2-nistp256',
+          key: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Olb3zMAFFxXKHiIkQO5cJ3Yhl5i6UPp+' +
+               'IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg==',
+        }],
+      })
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 0, 'should exit successfully')
+    process.exitCode = 0
+    t.match(joinedOutput(), /verified registry signatures, audited 1 package/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('third-party registry with keys and missing signatures errors', async t => {
+    npm.prefix = installWithThirdPartyRegistry()
+    const registryUrl = 'https://verdaccio-clone.org'
+    npm.flatOptions['@npmcli:registry'] = registryUrl
+    const thirdPartyRegistry = new MockRegistry({
+      tap: t,
+      registry: registryUrl,
+    })
+
+    const manifest = thirdPartyRegistry.manifest({
+      name: '@npmcli/arborist',
+      packuments: [{
+        version: '1.0.14',
+        dist: {
+          tarball: 'https://registry.npmjs.org/@npmcli/arborist/-/@npmcli/arborist-1.0.14.tgz',
+          integrity: 'sha512-caa8hv5rW9VpQKk6tyNRvSaVDySVjo9GkI7Wj/wcsFyxPm3tYrE' +
+                     'sFyTjSnJH8HCIfEGVQNjqqKXaXLFVp7UBag==',
+        },
+      }],
+    })
+    await thirdPartyRegistry.package({ manifest })
+    thirdPartyRegistry.nock.get('/-/npm/v1/keys')
+      .reply(200, {
+        keys: [{
+          expires: null,
+          keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+          keytype: 'ecdsa-sha2-nistp256',
+          scheme: 'ecdsa-sha2-nistp256',
+          key: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Olb3zMAFFxXKHiIkQO5cJ3Yhl5i6UPp+' +
+               'IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg==',
+        }],
+      })
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 1, 'should exit with error')
+    process.exitCode = 0
+    t.match(joinedOutput(), /1 package has a missing registry signature/)
+    t.matchSnapshot(joinedOutput())
+  })
+
+  t.test('multiple registries with keys and signatures', async t => {
+    npm.prefix = installWithMultipleRegistries()
+    const registryUrl = 'https://verdaccio-clone.org'
+    npm.flatOptions['@npmcli:registry'] = registryUrl
+    const thirdPartyRegistry = new MockRegistry({
+      tap: t,
+      registry: registryUrl,
+    })
+    await manifestWithValidSigs()
+    validKeys()
+
+    const manifest = thirdPartyRegistry.manifest({
+      name: '@npmcli/arborist',
+      packuments: [{
+        version: '1.0.14',
+        dist: {
+          tarball: 'https://registry.npmjs.org/@npmcli/arborist/-/@npmcli/arborist-1.0.14.tgz',
+          integrity: 'sha512-caa8hv5rW9VpQKk6tyNRvSaVDySVjo9GkI7Wj/wcsFyxPm3tYrE' +
+                     'sFyTjSnJH8HCIfEGVQNjqqKXaXLFVp7UBag==',
+          signatures: [
+            {
+              keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+              sig: 'MEUCIAvNpR3G0j7WOPUuVMhE0ZdM8PnDNcsoeFD8Iwz9YWIMAiEAn8cicDC2' +
+                   'Sf9MFQydqTv6S5XYsAh9Af1sig1nApNI11M=',
+            },
+          ],
+        },
+      }],
+    })
+    await thirdPartyRegistry.package({ manifest })
+    thirdPartyRegistry.nock.get('/-/npm/v1/keys')
+      .reply(200, {
+        keys: [{
+          expires: null,
+          keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+          keytype: 'ecdsa-sha2-nistp256',
+          scheme: 'ecdsa-sha2-nistp256',
+          key: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Olb3zMAFFxXKHiIkQO5cJ3Yhl5i6UPp+' +
+               'IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg==',
+        }],
+      })
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 0, 'should exit successfully')
+    process.exitCode = 0
+    t.match(joinedOutput(), /verified registry signatures, audited 2 packages/)
     t.matchSnapshot(joinedOutput())
   })
 
