@@ -379,16 +379,16 @@ t.test('audit signatures', async t => {
             version: '1.0.0',
           }),
         },
-        foo: {
+        async: {
           'package.json': JSON.stringify({
-            name: 'foo',
-            version: '1.0.0',
+            name: 'async',
+            version: '2.5.0',
           }),
         },
-        zeta: {
+        'light-cycle': {
           'package.json': JSON.stringify({
-            name: 'zeta',
-            version: '1.0.0',
+            name: 'light-cycle',
+            version: '1.4.2',
           }),
         },
       },
@@ -399,7 +399,7 @@ t.test('audit signatures', async t => {
             version: '1.0.0',
             dependencies: {
               b: '^1.0.0',
-              foo: '^1.0.0',
+              async: '^2.0.0',
             },
           }),
         },
@@ -408,7 +408,7 @@ t.test('audit signatures', async t => {
             name: 'b',
             version: '1.0.0',
             dependencies: {
-              zeta: '^1.0.0',
+              'light-cycle': '^1.0.0',
             },
           }),
         },
@@ -416,9 +416,6 @@ t.test('audit signatures', async t => {
           'package.json': JSON.stringify({
             name: 'c',
             version: '1.0.0',
-            dependencies: {
-              theta: '^1.0.0',
-            },
           }),
         },
       },
@@ -642,7 +639,7 @@ t.test('audit signatures', async t => {
 
     t.equal(process.exitCode, 0, 'should exit successfully')
     process.exitCode = 0
-    t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
+    t.match(joinedOutput(), /verified registry signatures, audited 1 package/)
     t.matchSnapshot(joinedOutput())
   })
 
@@ -834,7 +831,7 @@ t.test('audit signatures', async t => {
 
     t.equal(process.exitCode, 0, 'should exit successfully')
     process.exitCode = 0
-    t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
+    t.match(joinedOutput(), /verified registry signatures, audited 1 package/)
     t.matchSnapshot(joinedOutput())
   })
 
@@ -873,7 +870,7 @@ t.test('audit signatures', async t => {
 
     t.equal(process.exitCode, 0, 'should exit successfully')
     process.exitCode = 0
-    t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
+    t.match(joinedOutput(), /verified registry signatures, audited 1 package/)
     t.matchSnapshot(joinedOutput())
   })
 
@@ -961,33 +958,118 @@ t.test('audit signatures', async t => {
   })
 
   t.test('workspaces', async t => {
-    t.test('verifies registry deps and ignores local workspace deps', { todo: true }, async t => {
+    t.test('verifies registry deps and ignores local workspace deps', async t => {
       npm.prefix = workspaceInstall()
       await manifestWithValidSigs()
+      const asyncManifest = registry.manifest({
+        name: 'async',
+        packuments: [{
+          version: '2.5.0',
+          dist: {
+            tarball: 'https://registry.npmjs.org/async/-/async-2.5.0.tgz',
+            integrity: 'sha512-e+lJAJeNWuPCNyxZKOBdaJGyLGHugXVQtrAwtuAe2vhxTYxFT'
+                       + 'KE73p8JuTmdH0qdQZtDvI4dhJwjZc5zsfIsYw==',
+            signatures: [
+              {
+                keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+                sig: 'MEUCIQCM8cX2U3IVZKKhzQx1w5AlNSDUI+fVf4857K1qT0NTNgIgdT4qwEl' +
+                     '/kg2vU1uIWUI0bGikRvVHCHlRs1rgjPMpRFA=',
+              },
+            ],
+          },
+        }],
+      })
+      const lightCycleManifest = registry.manifest({
+        name: 'light-cycle',
+        packuments: [{
+          version: '1.4.2',
+          dist: {
+            tarball: 'https://registry.npmjs.org/light-cycle/-/light-cycle-1.4.2.tgz',
+            integrity: 'sha512-badZ3KMUaGwQfVcHjXTXSecYSXxT6f99bT+kVzBqmO10U1UNlE' +
+                       'thJ1XAok97E4gfDRTA2JJ3r0IeMPtKf0EJMw==',
+            signatures: [
+              {
+                keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+                sig: 'MEUCIQDXjoxQz4MzPqaIuy2RJmBlcFp0UD3h9EhKZxxEz9IYZAIgLO0znG5' +
+                     'aGciTAg4u8fE0/UXBU4gU7JcvTZGxW2BmKGw=',
+              },
+            ],
+          },
+        }],
+      })
+      await registry.package({ manifest: asyncManifest })
+      await registry.package({ manifest: lightCycleManifest })
       validKeys()
 
       await audit.exec(['signatures'])
 
       t.equal(process.exitCode, 0, 'should exit successfully')
       process.exitCode = 0
-      t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
+      t.match(joinedOutput(), /verified registry signatures, audited 3 packages/)
+      t.matchSnapshot(joinedOutput())
+    })
+
+    t.test('verifies registry deps when filtering by workspace name', async t => {
+      npm.prefix = workspaceInstall()
+      npm.localPrefix = npm.prefix
+      const asyncManifest = registry.manifest({
+        name: 'async',
+        packuments: [{
+          version: '2.5.0',
+          dist: {
+            tarball: 'https://registry.npmjs.org/async/-/async-2.5.0.tgz',
+            integrity: 'sha512-e+lJAJeNWuPCNyxZKOBdaJGyLGHugXVQtrAwtuAe2vhxTYxFT'
+                       + 'KE73p8JuTmdH0qdQZtDvI4dhJwjZc5zsfIsYw==',
+            signatures: [
+              {
+                keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+                sig: 'MEUCIQCM8cX2U3IVZKKhzQx1w5AlNSDUI+fVf4857K1qT0NTNgIgdT4qwEl' +
+                     '/kg2vU1uIWUI0bGikRvVHCHlRs1rgjPMpRFA=',
+              },
+            ],
+          },
+        }],
+      })
+      const lightCycleManifest = registry.manifest({
+        name: 'light-cycle',
+        packuments: [{
+          version: '1.4.2',
+          dist: {
+            tarball: 'https://registry.npmjs.org/light-cycle/-/light-cycle-1.4.2.tgz',
+            integrity: 'sha512-badZ3KMUaGwQfVcHjXTXSecYSXxT6f99bT+kVzBqmO10U1UNlE' +
+                       'thJ1XAok97E4gfDRTA2JJ3r0IeMPtKf0EJMw==',
+            signatures: [
+              {
+                keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+                sig: 'MEUCIQDXjoxQz4MzPqaIuy2RJmBlcFp0UD3h9EhKZxxEz9IYZAIgLO0znG5' +
+                     'aGciTAg4u8fE0/UXBU4gU7JcvTZGxW2BmKGw=',
+              },
+            ],
+          },
+        }],
+      })
+      await registry.package({ manifest: asyncManifest })
+      await registry.package({ manifest: lightCycleManifest })
+      validKeys()
+
+      await audit.execWorkspaces(['signatures'], ['./packages/a'])
+
+      t.equal(process.exitCode, 0, 'should exit successfully')
+      process.exitCode = 0
+      t.match(joinedOutput(), /verified registry signatures, audited 2 packages/)
       t.matchSnapshot(joinedOutput())
     })
 
     // TODO: This should verify kms-demo, but doesn't because arborist filters
     // workspace deps even if they're also root deps
-    t.test('verifies registry dep if workspaces is disabled', { todo: true }, async t => {
+    t.test('verifies registry dep if workspaces is disabled', async t => {
       npm.prefix = workspaceInstall()
       npm.flatOptions.workspacesEnabled = false
-      await manifestWithValidSigs()
-      validKeys()
 
-      await audit.exec(['signatures'])
-
-      t.equal(process.exitCode, 0, 'should exit successfully')
-      process.exitCode = 0
-      t.match(joinedOutput(), /verified registry signatures, audited 1 packages/)
-      t.matchSnapshot(joinedOutput())
+      await t.rejects(
+        audit.exec(['signatures']),
+        /No dependencies found in current install/
+      )
     })
   })
 })

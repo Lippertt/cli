@@ -42,7 +42,7 @@ found 0 vulnerabilities
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures ignores optional dependencies > must match snapshot 1`] = `
-verified registry signatures, audited 1 packages in xxx
+verified registry signatures, audited 1 package in 0s
 
 `
 
@@ -85,12 +85,12 @@ exports[`test/lib/commands/audit.js TAP audit signatures json output with valid 
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures omit dev dependencies with missing signature > must match snapshot 1`] = `
-verified registry signatures, audited 1 packages in xxx
+verified registry signatures, audited 1 package in 0s
 
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures output details about missing signatures > must match snapshot 1`] = `
-audited 1 packages in xxx
+audited 1 package in 0s
 
 1 package has a missing registry signature but the registry is providing signing keys:
 
@@ -112,7 +112,7 @@ Someone might have tampered with the package since it was published on the regis
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures with colour option and invalid signatures > must match snapshot 1`] = `
-audited 1 packages in xxx
+audited 1 package in 0s
 
 1 package has an [1m[31minvalid[39m[22m registry signature:
 
@@ -123,7 +123,7 @@ Someone might have tampered with the package since it was published on the regis
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures with invalid signatures > must match snapshot 1`] = `
-audited 1 packages in xxx
+audited 1 package in 0s
 
 1 package has an invalid registry signature:
 
@@ -134,7 +134,7 @@ Someone might have tampered with the package since it was published on the regis
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures with keys but missing signature > must match snapshot 1`] = `
-audited 1 packages in xxx
+audited 1 package in 0s
 
 1 package has a missing registry signature but the registry is providing signing keys
   run \`npm audit signatures --missing\` for details
@@ -150,7 +150,17 @@ audited 2 packages in xxx
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures with valid signatures > must match snapshot 1`] = `
-verified registry signatures, audited 1 packages in xxx
+verified registry signatures, audited 1 package in 0s
+
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures workspaces verifies registry deps and ignores local workspace deps > must match snapshot 1`] = `
+verified registry signatures, audited 3 packages in xxx
+
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures workspaces verifies registry deps when filtering by workspace name > must match snapshot 1`] = `
+verified registry signatures, audited 2 packages in xxx
 
 `
 
