@@ -53,7 +53,7 @@ exports[`test/lib/commands/audit.js TAP audit signatures json output with invali
       "version": "1.0.0",
       "resolved": "https://registry.npmjs.org/kms-demo/-/kms-demo-1.0.0.tgz",
       "integrity": "sha512-QqZ7VJ/8xPkS9s2IWB7Shj3qTJdcRyeXKbPQnsZjsPEwvutGv0EGeVchPcauoiDFJlGbZMFq5GDCurAGNSghJQ==",
-      "signature": "MEUCIQCX/49atNeSDYZP8betYWEqB0G8zZnIyB7ibC7nRNyMiQIgHosOKHhVTVNBI/6iUNSpDokOc44zsZ7TfybMKj8YdfY=",
+      "signature": "bogus",
       "keyid": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA"
     }
   },
@@ -73,7 +73,7 @@ exports[`test/lib/commands/audit.js TAP audit signatures json output with invali
       "version": "1.0.0",
       "resolved": "https://registry.npmjs.org/kms-demo/-/kms-demo-1.0.0.tgz",
       "integrity": "sha512-QqZ7VJ/8xPkS9s2IWB7Shj3qTJdcRyeXKbPQnsZjsPEwvutGv0EGeVchPcauoiDFJlGbZMFq5GDCurAGNSghJQ==",
-      "signature": "MEUCIQCX/49atNeSDYZP8betYWEqB0G8zZnIyB7ibC7nRNyMiQIgHosOKHhVTVNBI/6iUNSpDokOc44zsZ7TfybMKj8YdfY=",
+      "signature": "bogus",
       "keyid": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA"
     }
   }
@@ -100,6 +100,17 @@ audited 1 package in 0s
 1 package has a missing registry signature but the registry is providing signing keys:
 
 kms-demo@1.0.0
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures third-party registry with invalid signatures errors > must match snapshot 1`] = `
+audited 1 package in 0s
+
+1 package has an invalid registry signature:
+
+@npmcli/arborist@1.0.14 (https://verdaccio-clone.org)
+
+Someone might have tampered with the package since it was published on the registry (monster-in-the-middle attack)!
+
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures third-party registry with keys and missing signatures errors > must match snapshot 1`] = `
@@ -132,6 +143,39 @@ Someone might have tampered with the package since it was published on the regis
 
 `
 
+exports[`test/lib/commands/audit.js TAP audit signatures with bundled and peer deps and no signatures > must match snapshot 1`] = `
+verified registry signatures, audited 1 package in 0s
+
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures with color and both valid and missing signatures > must match snapshot 1`] = `
+audited 2 packages in xxx
+
+1 packages have [1mverified[22m registry signatures
+
+1 package has a [1m[35mmissing[39m[22m registry signature but the registry is providing signing keys
+  run \`npm audit signatures --missing\` for details
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures with color and multiple invalid signatures > must match snapshot 1`] = `
+audited 2 packages in xxx
+
+2 packages have [1m[31minvalid[39m[22m registry signatures:
+
+[31masync@1.1.1[39m
+[31mkms-demo@1.0.0[39m
+
+Someone might have tampered with the packages since it was published on the registry (monster-in-the-middle attack)!
+
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures with color and multiple missing signatures > must match snapshot 1`] = `
+audited 2 packages in xxx
+
+2 packages have [1m[35mmissing[39m[22m registry signatures but the registry is providing signing keys
+  run \`npm audit signatures --missing\` for details
+`
+
 exports[`test/lib/commands/audit.js TAP audit signatures with colour option and invalid signatures > must match snapshot 1`] = `
 audited 1 package in 0s
 
@@ -161,6 +205,25 @@ audited 1 package in 0s
   run \`npm audit signatures --missing\` for details
 `
 
+exports[`test/lib/commands/audit.js TAP audit signatures with multiple invalid signatures > must match snapshot 1`] = `
+audited 2 packages in xxx
+
+2 packages have invalid registry signatures:
+
+async@1.1.1
+kms-demo@1.0.0
+
+Someone might have tampered with the packages since it was published on the registry (monster-in-the-middle attack)!
+
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures with multiple missing signatures > must match snapshot 1`] = `
+audited 2 packages in xxx
+
+2 packages have missing registry signatures but the registry is providing signing keys
+  run \`npm audit signatures --missing\` for details
+`
+
 exports[`test/lib/commands/audit.js TAP audit signatures with valid and missing signatures > must match snapshot 1`] = `
 audited 2 packages in xxx
 
@@ -171,6 +234,11 @@ audited 2 packages in xxx
 `
 
 exports[`test/lib/commands/audit.js TAP audit signatures with valid signatures > must match snapshot 1`] = `
+verified registry signatures, audited 1 package in 0s
+
+`
+
+exports[`test/lib/commands/audit.js TAP audit signatures with valid signatures using alias > must match snapshot 1`] = `
 verified registry signatures, audited 1 package in 0s
 
 `
