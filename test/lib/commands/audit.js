@@ -257,7 +257,7 @@ t.test('audit signatures', async t => {
       color: false,
       config: {
         global: false,
-        missing: false,
+        'log-missing-names': false,
         json: false,
         omit: [],
       },
@@ -361,7 +361,7 @@ t.test('audit signatures', async t => {
         },
         dependencies: {
           get: {
-            version: 'npm:kms-demo@1.7.1',
+            version: 'npm:node-fetch@1.7.1',
           },
         },
       }),
@@ -858,6 +858,112 @@ t.test('audit signatures', async t => {
     t.matchSnapshot(joinedOutput())
   })
 
+  t.test('with multiple valid signatures and one invalid', async t => {
+    npm.prefix = t.testdir({
+      'package.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        dependencies: {
+          'kms-demo': '^1.0.0',
+          'node-fetch': '^1.6.0',
+        },
+        devDependencies: {
+          async: '~2.1.0',
+        },
+      }),
+      node_modules: {
+        'kms-demo': {
+          'package.json': JSON.stringify({
+            name: 'kms-demo',
+            version: '1.0.0',
+          }),
+        },
+        async: {
+          'package.json': JSON.stringify({
+            name: 'async',
+            version: '2.5.0',
+          }),
+        },
+        'node-fetch': {
+          'package.json': JSON.stringify({
+            name: 'node-fetch',
+            version: '1.6.0',
+          }),
+        },
+      },
+      'package-lock.json': JSON.stringify({
+        name: 'test-dep',
+        version: '1.0.0',
+        lockfileVersion: 2,
+        requires: true,
+        packages: {
+          '': {
+            name: 'test-dep',
+            version: '1.0.0',
+            dependencies: {
+              'kms-demo': '^1.0.0',
+              'node-fetch': '^1.6.0',
+            },
+            devDependencies: {
+              async: '~2.1.0',
+            },
+          },
+          'node_modules/kms-demo': {
+            version: '1.0.0',
+          },
+          'node_modules/async': {
+            version: '2.5.0',
+          },
+          'node_modules/node-fetch': {
+            version: '1.6.0',
+          },
+        },
+        dependencies: {
+          'kms-demo': {
+            version: '1.0.0',
+          },
+          'node-fetch': {
+            version: '1.6.0',
+          },
+          async: {
+            version: '2.5.0',
+          },
+        },
+      }),
+    })
+    await manifestWithValidSigs()
+    const asyncManifest = registry.manifest({
+      name: 'async',
+      packuments: [{
+        version: '2.5.0',
+        dist: {
+          tarball: 'https://registry.npmjs.org/async/-/async-2.5.0.tgz',
+          integrity: 'sha512-e+lJAJeNWuPCNyxZKOBdaJGyLGHugXVQtrAwtuAe2vhxTYxFT'
+                     + 'KE73p8JuTmdH0qdQZtDvI4dhJwjZc5zsfIsYw==',
+          signatures: [
+            {
+              keyid: 'SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA',
+              sig: 'MEUCIQCM8cX2U3IVZKKhzQx1w5AlNSDUI+fVf4857K1qT0NTNgIgdT4qwEl' +
+                   '/kg2vU1uIWUI0bGikRvVHCHlRs1rgjPMpRFA=',
+            },
+          ],
+        },
+      }],
+    })
+    await registry.package({ manifest: asyncManifest })
+    await manifestWithInvalidSigs('node-fetch', '1.6.0')
+    validKeys()
+
+    await audit.exec(['signatures'])
+
+    t.equal(process.exitCode, 1, 'should exit with error')
+    process.exitCode = 0
+    t.match(joinedOutput(), /audited 3 packages/)
+    t.match(joinedOutput(), /2 packages have verified registry signatures/)
+    t.match(joinedOutput(), /1 package has an invalid registry signature/)
+    t.matchSnapshot(joinedOutput())
+  })
+
   t.test('with bundled and peer deps and no signatures', async t => {
     npm.prefix = installWithPeerDeps()
     await manifestWithValidSigs()
@@ -896,7 +1002,7 @@ t.test('audit signatures', async t => {
     t.equal(process.exitCode, 1, 'should exit with error')
     process.exitCode = 0
     t.match(joinedOutput(), /audited 2 packages/)
-    t.match(joinedOutput(), /verified registry signatures/)
+    t.match(joinedOutput(), /verified registry signature/)
     t.match(joinedOutput(), /missing registry signature/)
     t.matchSnapshot(joinedOutput())
   })
@@ -998,7 +1104,7 @@ t.test('audit signatures', async t => {
 
   t.test('output details about missing signatures', async t => {
     npm.prefix = validInstall()
-    npm.config.set('missing', true)
+    npm.config.set('log-missing-names', true)
     await manifestWithoutSigs()
     validKeys()
 
@@ -1391,6 +1497,16 @@ t.test('audit signatures', async t => {
     await t.rejects(
       audit.exec(['signatures']),
       /No dependencies found in current install/
+    )
+  })
+
+  t.test('errors for global packages', async t => {
+    npm.config.set('global', true)
+
+    await t.rejects(
+      audit.exec(['signatures']),
+      /`npm audit signatures` does not support global packages/,
+      { code: 'ECIGLOBAL' }
     )
   })
 
